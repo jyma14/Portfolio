@@ -1,0 +1,191 @@
+---
+title: "Proyecto Final de Probabilidad y Estadística"
+author: "Joshelyn Mendoza"
+date: '2022-11-23'
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+---
+## Proyecto Final
+
+Introducción:
+La enfermedad pulmonar obstructiva crónica (EPOC), es una enfermedad pulmonar inflamatoria crónica que causa la obstrucción del flujo de aire de los pulmones. Los síntomas incluyen dificultad para respirar, tos, producción de moco (esputo) y sibilancias. Típicamente es causado por la exposición a largo plazo a gases irritantes o partículas de materia, más a menudo por el humo del cigarrillo. Las personas con enfermedad pulmonar obstructiva crónica tienen un mayor riesgo de desarrollar enfermedades cardíacas, cáncer de pulmón y varias otras afecciones. De lo anterior, la importancia de las investigaciones relacionadas a esta enfermedad.
+
+
+```{r}
+#Cargo las librerías que voy a utilizar
+library(dplyr)
+library(car)
+library(emmeans)
+library(rstatix)
+library(coin)
+#library(ggplot2)
+#library(tidyverse)
+#library(ggpubr)
+```
+
+![ ](ProyectoFinal17.png){withd=500%}
+Heijdra y otros.(A-27) afirman que muchos pacientes con enfermedad pulmonar obstructiva crónica grave (EPOC) tienen baja saturación arterial de oxígeno durante la noche. Estos investigadores realizaron un estudio para determinar si existe una relación causal entre la disfunción muscular respiratoria y la saturación nocturna. Los sujetos fueron 20 pacientes con EPOC (5 mujeres, 15 hombres) asignados aleatoriamente para recibir entrenamiento muscular inspiratorio de flujo objetivo (TF-IMT) al 60 por ciento de su presión respiratoria máxima en la boca (PImax) o TF-IMT simulado al 10% de la PImax. Entre los datos recogidos se encuentran los tiempos de resistencia (Tiempo, s) para cada sujeto al inicio del entrenamiento y 10 semanas después, mismos que se encuentran en la siguiente base de datos.
+
+Paso 1. Observar y analizar los datos 
+```{r}
+#Cargo mi base de datos
+COPD <- data.frame(read.csv(url("https://raw.githubusercontent.com/fabarrios/ProbEstad/main/DataSets/ch13_all/REV_C13_25.csv")))
+COPD
+```
+```{r}
+COPD$GROUP = factor(COPD$GROUP)
+COPD
+```
+
+Observando mis datos y de acuerdo a la información brindanda anteriormente, determino lo siguiente:
+  *El estudio cuenta con 20 sujetos, de los cuales 5 son mujeres y 15 son hombres, con COPD, mismos que fueron asignados de forma aleatoria.
+  *Grupo 1: Corresponde a los sujetos con entrenamiento muscular inspiratorio de flujo objetivo (TF-IMT) al 60 por ciento de su
+presión respiratoria máxima en la boca (PImax), en el cual se presenta el tiempo en segundos.
+  *Grupo 2: Esta constituido por los sujetos de prueba con entrenamiento muscular inspiratorio de flujo objetivo (TF-IMT) simulado al 10% de la PImax, presentando el tiempo en segundos.
+De los datos se busca observar la diferencia en los valores de flujo objetivo debido al tratamiento con diferencias por grupo. 
+
+Probando que los grupos son estadísticamente diferentes por semana, observando las diferencias cualitativas
+```{r}
+library(ggplot2)
+library(ggpubr)
+ggplot(COPD, aes(x = week0, y = week10)) + geom_boxplot(aes(color = GROUP))
+```
+
+De la gráfica se observan que los tratamientos son estadísticamente diferentes, sin embargo, para comprobar se realiza prueba de hipótesis, para esto primero se prueba la normalidad de los datos.
+```{r}
+#Realizo la prueba de Shapiro, como prueba de normalidad...
+
+#Primero para la semana 0
+shapiro.test(COPD$week0)
+```
+Del valor de p, no podemos rechazar la hipótesis nula por lo que se asume la normalidad.
+
+```{r}
+#Ahora, para la semana 10...
+shapiro.test(COPD$week10)
+```
+Del valor de p, no podemos rechazar la hipótesis nula por lo que se asume la normalidad.
+Una vez probada la normalidad, se realiza un T test para mostrar: 
+1. Que los grupos son estadísticamente iguales en la semana 0. 
+
+H0: Los grupos son estadísticamente iguales en la semana cero.
+Hipótesis Alternativa: Los grupos son estadísticamente diferentes en la semana cero. 
+```{r}
+#Haciendo pruebas t...
+t.test(week0 ~ GROUP, paired = TRUE, mu = 0, alternative = "two.sided", data = COPD)
+```
+Del valor de p no se puede descartar la H0, lo cuál es útil para el análisis. 
+
+2. Los grupos son estadísticamente diferentes en la semana 10. 
+```{r}
+#Haciendo pruebas t...
+t.test(week10 ~ GROUP, paired = TRUE, mu = 0, alternative = "two.sided", data = COPD)
+```
+Del valor de p puedo descartar la H0 (hipótesis nula), y se observa que existe diferencia entre los tratamientos, es decir, en los resultados de los entrenamientos.
+Se concluye que existe diferencia en los tratamientos para cada grupo. 
+
+Ahora, continuamos realizando ANOVA...
+Primero para Week 0:
+```{r}
+anova_week0 <- aov(week0 ~ GROUP, data = COPD)
+summary(anova_week0)
+```
+Luego para Week10:
+```{r}
+anova_week10 <- aov(week10 ~ GROUP, data = COPD)
+summary(anova_week10)
+```
+De esto observamos que los tratamientos (entrenamiento), si muestran diferencia estadística. 
+Por lo que ahora se buscará ver los efectos del entrenamiento en cada grupo.
+
+```{r}
+#Agrupo mis datos pertenecientes a los sujetos del grupo 1...
+GROUP1 <- COPD[1:10,]
+GROUP1
+```
+```{r}
+boxplot(GROUP1$week0, GROUP1$week10)
+```
+En este gráfico de caja, se muestra claramente que si hay una mejora en la semana 10 con el entrenamiento muscular inpiratorio de flujo objetivo, en comparación con la semana 0, lo anterior, debido al tratamiento (entrenamiento muscular inspiratorio de flujo objetivo)
+
+Realizando t test dentro del mismo grupo, tomando en cuenta Week 0 y Week 10...
+
+Comenzamos por el Grupo 1:
+```{r}
+t.test(GROUP1$week10, GROUP1$week0 , alternative = "greater", mu=0, paired = TRUE, conf.level = 0.95)
+```
+En este caso, se observa que 
+```{r}
+#Agrupo mis datos de sujetos pertenecientes al grupo 2
+GROUP2 <- COPD[11:20,]
+GROUP2
+```
+
+```{r}
+t.test(GROUP2$week10, GROUP2$week0 , alternative = "greater", mu=0, paired = TRUE, conf.level = 0.95)
+```
+No se descarta h0
+Mientras que por la vía no paramétrica ...
+Se utilizará Kruskal Walis para el anova de una vía y el test de Wilcox para los T-Test. 
+```{r}
+krusk_week0 <- COPD %>% kruskal_test(week0 ~ GROUP)
+krusk_week0
+```
+De esto se ve que los grupos no son estadísticamente diferentes para la semana 0. 
+```{r}
+krusk_week10 <- COPD %>% kruskal_test(week10 ~ GROUP)
+krusk_week10
+```
+Del valor de p si se puede descartar la H0, por lo que los grupos si son diferentes para la semana 10.  
+
+Sección de pruebas t.
+```{r}
+mann_1 <- wilcox.test(GROUP1$week10, GROUP1$week0, alternative = "greater")
+mann_1
+```
+De esta prueba se observa que se puede descartar la H0 que es la diferencia en la capacidad de saturación entre la semana diez y la semana 0, es 0, para el grupo 1.
+```{r}
+mann_2 <- wilcox.test(GROUP2$week10, GROUP2$week0, alternative = "greater")
+mann_2
+```
+De esta prueba se observa que no se puede descartar la H0 que es la diferencia en la capacidad de saturación entre la semana diez y la semana 0, es 0, para el grupo 2.
+
+En conclusión, existe una relación entre la disfunción muscular respiratoria y la saturación nocturna, viendo que aquellos con que recibieron entrenamiento respiratorio al 60% elevaron su niveles de saturación mientras que aquellos que recibieron entrenamiento al 10% disminuyeron su capacidad de saturación, para la semana 10, de este análisis también se observa que por las dos vías tanto paramétrica como no paramétrica se pueden obtener los mismos resultados. 
+
+Otras aplicaciones:
+Esta prueba aunque fue desarrollada para EPOC, es aplicable a otras enfermedades respiratorias, puesto que se comparte la dificultad para respirar. En el caso de enfermedades crónicas como el asma, están presentes de igual manera las sibilancias durante los periodos de sueño o incluso durante el día, por lo que también se realizan ejercicios de fortalecimiento de músculos respiratorios, con el fin de mejorar diversos aspectos de la vida del paciente (calidad de sueño, mayores niveles de energía, ...) y reducir la probabilidad de desarrollar alguna otra enfermedad. 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
